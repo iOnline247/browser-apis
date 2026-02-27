@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser API Lab</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Aldrich&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #07070d;
+  --surface: #0d0d1a;
+  --surface-2: #131325;
+  --border: #1a1a35;
+  --border-bright: #3333aa;
+  --amber: #ffb347;
+  --amber-dim: #7a5520;
+  --cyan: #00e5ff;
+  --cyan-dim: #005566;
+  --green: #39ff14;
+  --green-dim: #1a5500;
+  --red: #ff3355;
+  --red-dim: #550020;
+  --violet: #bf5fff;
+  --text: #8888b8;
+  --text-bright: #e0e0ff;
+  --text-dim: #3a3a60;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* CRT scanlines overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(transparent 0px, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+  pointer-events: none;
+  z-index: 10000;
+}
+
+/* ─── HEADER ─── */
+header {
+  padding: 3rem 2rem 2.5rem;
+  text-align: center;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+header::before {
+  content: '';
+  position: absolute;
+  top: -200px; left: 50%;
+  transform: translateX(-50%);
+  width: 800px; height: 400px;
+  background: radial-gradient(ellipse, rgba(80,80,220,0.12) 0%, transparent 65%);
+  pointer-events: none;
+}
+.eyebrow {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--cyan);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  opacity: 0.8;
+}
+.eyebrow::before, .eyebrow::after { content: '—'; margin: 0 0.75em; opacity: 0.4; }
+h1 {
+  font-family: 'Aldrich', sans-serif;
+  font-size: clamp(2.2rem, 6vw, 4.5rem);
+  color: var(--text-bright);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+h1 em { color: var(--amber); font-style: normal; }
+.subtitle {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  font-weight: 300;
+  letter-spacing: 0.06em;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding: 0.35rem 1rem;
+  border: 1px solid var(--border-bright);
+  border-radius: 100px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text);
+  letter-spacing: 0.15em;
+}
+.pill b { color: var(--amber); font-size: 0.85rem; font-weight: 400; }
+
+/* ─── GRID ─── */
+.lab-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin: 2rem;
+}
+
+/* ─── CARD ─── */
+.card {
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: background 0.3s;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(80,80,255,0.03) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.card.active { background: var(--surface-2); }
+.card.active::before { opacity: 1; }
+
+.card-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.125rem;
+  border-bottom: 1px solid var(--border);
+  transition: border-color 0.3s;
+}
+.card.active .card-hd { border-color: var(--border-bright); }
+.card-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.card-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--cyan);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+.card-name {
+  font-family: 'Aldrich', sans-serif;
+  font-size: 0.88rem;
+  color: var(--text-bright);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── TOGGLE SWITCH ─── */
+.switch { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex-shrink: 0; }
+.switch input { display: none; }
+.switch-track {
+  position: relative;
+  width: 48px; height: 24px;
+  background: #111120;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all 0.25s;
+  flex-shrink: 0;
+}
+.switch input:checked + .switch-track {
+  background: rgba(57,255,20,0.1);
+  border-color: var(--green);
+  box-shadow: 0 0 10px rgba(57,255,20,0.25), inset 0 0 6px rgba(57,255,20,0.08);
+}
+.switch-thumb {
+  position: absolute;
+  top: 4px; left: 4px;
+  width: 14px; height: 14px;
+  background: #404060;
+  border-radius: 50%;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.switch input:checked + .switch-track .switch-thumb {
+  left: 28px;
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(57,255,20,0.7);
+}
+.switch-lbl {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  color: var(--text-dim);
+  transition: color 0.25s;
+  min-width: 2em;
+}
+.card.active .switch-lbl { color: var(--green); }
+
+/* ─── CARD BODY ─── */
+.card-bd {
+  padding: 1rem 1.125rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+.card-desc {
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--text-dim);
+  font-weight: 300;
+}
+.card.active .card-desc { color: var(--text); }
+
+/* ─── DEMO PANEL ─── */
+.demo { display: none; flex-direction: column; gap: 0.75rem; }
+.card.active .demo { display: flex; animation: fadeSlide 0.3s ease both; }
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── DATA GRID ─── */
+.data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.data-grid.cols-1 { grid-template-columns: 1fr; }
+.data-cell {
+  background: rgba(0,0,0,0.4);
+  padding: 0.4rem 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.dk {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.56rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.dv {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--amber);
+  word-break: break-all;
+}
+.dv.green { color: var(--green); }
+.dv.cyan  { color: var(--cyan); }
+.dv.red   { color: var(--red); }
+.dv.violet { color: var(--violet); }
+
+/* ─── BUTTONS ─── */
+.btn {
+  padding: 0.45rem 0.875rem;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text-bright);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.18s;
+  border-radius: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.btn:hover {
+  background: rgba(80,80,255,0.12);
+  border-color: #6666ff;
+  color: var(--cyan);
+  box-shadow: 0 0 8px rgba(100,100,255,0.2);
+}
+.btn:active { transform: scale(0.97); }
+.btn.amber  { border-color: var(--amber-dim); color: var(--amber); }
+.btn.amber:hover  { background: rgba(255,179,71,0.08); border-color: var(--amber); box-shadow: 0 0 8px rgba(255,179,71,0.15); }
+.btn.green  { border-color: var(--green-dim); color: var(--green); }
+.btn.green:hover  { background: rgba(57,255,20,0.08); border-color: var(--green); }
+.btn.red    { border-color: var(--red-dim); color: var(--red); }
+.btn.red:hover    { background: rgba(255,51,85,0.08); border-color: var(--red); }
+.btn.violet { border-color: #5a2a7a; color: var(--violet); }
+.btn.violet:hover { background: rgba(191,95,255,0.08); border-color: var(--violet); }
+.btn.wide   { width: 100%; justify-content: center; padding: 0.7rem; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+/* ─── CONSOLE LOG ─── */
+.console {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0.5rem 0.75rem;
+  max-height: 88px;
+  overflow-y: auto;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.68rem;
+  line-height: 1.7;
+}
+.log   { color: var(--text-dim); }
+.log.i { color: var(--cyan); }
+.log.s { color: var(--green); }
+.log.w { color: var(--amber); }
+.log.e { color: var(--red); }
+
+/* ─── FORM CONTROLS ─── */
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  border-radius: 2px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--border-bright);
+  box-shadow: 0 0 0 2px rgba(80,80,255,0.12);
+}
+select option { background: #111120; }
+textarea { resize: vertical; min-height: 56px; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  outline: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px; height: 13px;
+  background: var(--cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(0,229,255,0.5);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 13px; height: 13px;
+  background: var(--cyan);
+  border-radius: 50%;
+  border: none;
+}
+
+.range-row { display: flex; align-items: center; gap: 0.75rem; }
+.range-key {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 55px;
+}
+.range-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--cyan);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ─── CANVAS ─── */
+canvas {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: #000008;
+  width: 100%;
+}
+
+/* ─── SYNTH KEYS ─── */
+.keys {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: 70px;
+  position: relative;
+}
+.key {
+  position: relative;
+  flex: 1;
+  max-width: 34px;
+  height: 68px;
+  background: linear-gradient(to bottom, #181830 0%, #0e0e20 100%);
+  border: 1px solid var(--border-bright);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 5px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem;
+  color: var(--text-dim);
+  transition: background 0.05s, box-shadow 0.05s;
+  -webkit-tap-highlight-color: transparent;
+}
+.key:hover, .key.on {
+  background: linear-gradient(to bottom, rgba(0,229,255,0.15) 0%, rgba(0,229,255,0.04) 100%);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0,229,255,0.25), inset 0 -3px 6px rgba(0,229,255,0.08);
+}
+.key.sharp {
+  position: absolute;
+  width: 22px;
+  max-width: 22px;
+  height: 42px;
+  background: #080816;
+  border-color: #333366;
+  color: #333355;
+  font-size: 0.42rem;
+  z-index: 2;
+  top: 0;
+}
+.key.sharp:hover, .key.sharp.on {
+  background: rgba(191,95,255,0.12);
+  border-color: var(--violet);
+  color: var(--violet);
+  box-shadow: 0 0 10px rgba(191,95,255,0.25);
+}
+
+/* ─── INTERSECTION OBSERVER ─── */
+.scroll-box {
+  height: 110px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0.375rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.sensor-item {
+  padding: 0.4rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.25s;
+  background: rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+.sensor-item.visible {
+  border-color: var(--green-dim);
+  color: var(--green);
+  background: rgba(57,255,20,0.04);
+}
+.s-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: all 0.25s;
+  flex-shrink: 0;
+}
+.sensor-item.visible .s-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+/* ─── RESIZE TARGET ─── */
+.resize-target {
+  background: rgba(0,0,0,0.3);
+  border: 1px dashed var(--border-bright);
+  border-radius: 2px;
+  min-height: 64px;
+  resize: both;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  padding: 0.5rem;
+  text-align: center;
+  cursor: se-resize;
+}
+
+/* ─── BATTERY ─── */
+.battery-shell {
+  flex: 1;
+  height: 30px;
+  border: 2px solid var(--border-bright);
+  border-radius: 3px;
+  position: relative;
+  overflow: visible;
+  background: rgba(0,0,0,0.5);
+}
+.battery-shell::after {
+  content: '';
+  position: absolute;
+  right: -7px; top: 50%;
+  transform: translateY(-50%);
+  width: 5px; height: 14px;
+  background: var(--border-bright);
+  border-radius: 0 2px 2px 0;
+}
+.battery-inner {
+  overflow: hidden;
+  height: 100%;
+  border-radius: 1px;
+}
+.battery-charge {
+  height: 100%;
+  background: linear-gradient(to right, var(--green), var(--cyan));
+  transition: width 0.5s;
+  box-shadow: 0 0 8px rgba(57,255,20,0.3);
+}
+.battery-pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-bright);
+  text-shadow: 0 0 4px rgba(0,0,0,0.9);
+  z-index: 1;
+}
+.battery-row { display: flex; align-items: center; gap: 0.5rem; }
+
+/* ─── VIBRATION PATTERNS ─── */
+.pattern-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+
+/* ─── CLIPBOARD PREVIEW ─── */
+.clip-preview {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0.5rem 0.75rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  min-height: 44px;
+  word-break: break-all;
+  white-space: pre-wrap;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+/* ─── HINT TEXT ─── */
+.hint {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* ─── CARD MDN LINK ─── */
+.mdn-link {
+  padding: 0.4rem 1.125rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+.mdn-link a {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+.mdn-link a:hover { color: var(--cyan); }
+
+/* ─── BROADCAST INPUT ROW ─── */
+.bc-row { display: flex; gap: 0.5rem; }
+.bc-row input { flex: 1; }
+
+/* ─── FOOTER ─── */
+footer {
+  text-align: center;
+  padding: 2rem;
+  border-top: 1px solid var(--border);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.18em;
+}
+footer a { color: var(--cyan); text-decoration: none; }
+footer a:hover { color: var(--text-bright); }
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .lab-grid { margin: 0; border-left: none; border-right: none; }
+  header { padding: 2rem 1rem 1.5rem; }
+  .data-grid { grid-template-columns: 1fr; }
+  .pattern-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!--  HEADER                                                 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<header>
+  <div class="eyebrow">Laboratory · Interactive · 2024</div>
+  <h1>Browser <em>API</em> Lab</h1>
+  <p class="subtitle">12 live demonstrations of modern Web Platform APIs — toggle each module on to activate</p>
+  <div class="pill"><b>12</b> APIs &nbsp;·&nbsp; toggle to enable &nbsp;·&nbsp; all run natively in-browser</div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!--  DEMO GRID                                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="lab-grid">
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  1. WEB AUDIO API            ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="audio">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Web Audio API</span>
+        <span class="card-name">Synthesizer</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'audio')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc">Polyphonic oscillator synth using <code>AudioContext</code>, <code>OscillatorNode</code>, <code>GainNode</code>, and <code>AnalyserNode</code> for real-time waveform visualization.</p>
+      <div class="demo">
+        <canvas id="waveform-canvas" height="48"></canvas>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <select id="wave-type" style="flex:1">
+            <option value="sine">SINE</option>
+            <option value="square">SQUARE</option>
+            <option value="sawtooth">SAWTOOTH</option>
+            <option value="triangle">TRIANGLE</option>
+          </select>
+          <div class="range-row" style="flex:2">
+            <span class="range-key">VOL</span>
+            <input type="range" id="synth-vol" min="0" max="100" value="60">
+            <span class="range-val" id="vol-display">60</span>
+          </div>
+        </div>
+        <div class="keys" id="synth-keys"></div>
+        <p class="hint">Click or touch keys to play. Hold for sustained notes.</p>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  2. CANVAS 2D API            ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="canvas">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Canvas 2D API</span>
+        <span class="card-name">Particle Field</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'canvas')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc">Generative particle system drawn each frame via <code>CanvasRenderingContext2D</code>. Particles connect with proximity lines and react to mouse hover.</p>
+      <div class="demo">
+        <canvas id="particle-canvas" height="150" style="cursor:crosshair"></canvas>
+        <div class="btn-row">
+          <button class="btn amber" onclick="demoHandlers.canvas.burst()">BURST</button>
+          <button class="btn red" onclick="demoHandlers.canvas.clear()">CLEAR</button>
+        </div>
+        <div class="data-grid">
+          <div class="data-cell"><span class="dk">Particles</span><span class="dv" id="particle-count">0</span></div>
+          <div class="data-cell"><span class="dk">Connections</span><span class="dv cyan" id="connection-count">0</span></div>
+        </div>
+        <p class="hint">Hover to repel · Click canvas for burst</p>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  3. GEOLOCATION API          ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="geo">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Geolocation API</span>
+        <span class="card-name">GPS Tracker</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'geo')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc">Retrieve and monitor device location with <code>navigator.geolocation</code>. Supports one-time fix or continuous <code>watchPosition</code> updates.</p>
+      <div class="demo">
+        <div class="btn-row">
+          <button class="btn green" onclick="demoHandlers.geo.getPos()">GET POSITION</button>
+          <button class="btn amber" onclick="demoHandlers.geo.watchPos()">WATCH</button>
+          <button class="btn red" onclick="demoHandlers.geo.unwatchPos()">STOP</button>
+        </div>
+        <div class="data-grid">
+          <div class="data-cell"><span class="dk">Latitude</span><span class="dv" id="geo-lat">—</span></div>
+          <div class="data-cell"><span class="dk">Longitude</span><span class="dv" id="geo-lng">—</span></div>
+          <div class="data-cell"><span class="dk">Accuracy</span><span class="dv cyan" id="geo-acc">—</span></div>
+          <div class="data-cell"><span class="dk">Updated</span><span class="dv" id="geo-time">—</span></div>
+        </div>
+        <div class="console" id="geo-log"></div>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  4. SPEECH SYNTHESIS API     ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="speech">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Web Speech API</span>
+        <span class="card-name">TTS Engine</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'speech')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc"><code>SpeechSynthesisUtterance</code> converts text to speech using the browser's built-in TTS voices. Control rate, pitch, and voice selection.</p>
+      <div class="demo">
+        <textarea id="speech-text">The quick brown fox jumps over the lazy dog.</textarea>
+        <select id="speech-voice"><option>Loading voices…</option></select>
+        <div class="range-row">
+          <span class="range-key">RATE</span>
+          <input type="range" id="speech-rate" min="0.5" max="2" step="0.1" value="1">
+          <span class="range-val" id="rate-val">1.0</span>
+        </div>
+        <div class="range-row">
+          <span class="range-key">PITCH</span>
+          <input type="range" id="speech-pitch" min="0" max="2" step="0.1" value="1">
+          <span class="range-val" id="pitch-val">1.0</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn green" onclick="demoHandlers.speech.speak()">▶ SPEAK</button>
+          <button class="btn red" onclick="demoHandlers.speech.cancel()">■ STOP</button>
+        </div>
+        <div class="data-grid cols-1">
+          <div class="data-cell"><span class="dk">Status</span><span class="dv" id="speech-status">IDLE</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  5. INTERSECTION OBSERVER    ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="intersection">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Intersection Observer API</span>
+        <span class="card-name">Scroll Sensor</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'intersection')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc"><code>IntersectionObserver</code> asynchronously detects when target elements enter or leave a scroll container's viewport — zero scroll-event listeners needed.</p>
+      <div class="demo">
+        <p class="hint">Scroll the box — sensors light up as they enter the viewport</p>
+        <div class="scroll-box" id="io-scroll-box"></div>
+        <div class="data-grid">
+          <div class="data-cell"><span class="dk">Visible Now</span><span class="dv green" id="io-visible">0</span></div>
+          <div class="data-cell"><span class="dk">Total Events</span><span class="dv" id="io-events">0</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  6. RESIZE OBSERVER          ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="resize">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">ResizeObserver API</span>
+        <span class="card-name">Element Sizer</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'resize')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc"><code>ResizeObserver</code> fires whenever an element's dimensions change, providing <code>contentRect</code> and <code>borderBoxSize</code> — no polling required.</p>
+      <div class="demo">
+        <p class="hint">Drag the ↘ corner handle to resize the box below</p>
+        <div class="resize-target" id="resize-target">↔ DRAG TO RESIZE ↕</div>
+        <div class="data-grid">
+          <div class="data-cell"><span class="dk">Width</span><span class="dv" id="resize-w">—</span></div>
+          <div class="data-cell"><span class="dk">Height</span><span class="dv" id="resize-h">—</span></div>
+          <div class="data-cell"><span class="dk">inlineSize</span><span class="dv cyan" id="resize-inline">—</span></div>
+          <div class="data-cell"><span class="dk">blockSize</span><span class="dv cyan" id="resize-block">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  7. PAGE VISIBILITY API      ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="visibility">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Page Visibility API</span>
+        <span class="card-name">Tab Spy</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'visibility')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc"><code>document.visibilityState</code> and the <code>visibilitychange</code> event let you know when the user switches tabs — useful for pausing animations or media.</p>
+      <div class="demo">
+        <div class="data-grid">
+          <div class="data-cell"><span class="dk">State</span><span class="dv green" id="vis-state">VISIBLE</span></div>
+          <div class="data-cell"><span class="dk">Changes</span><span class="dv cyan" id="vis-changes">0</span></div>
+          <div class="data-cell"><span class="dk">Active Time</span><span class="dv" id="vis-active">0s</span></div>
+          <div class="data-cell"><span class="dk">Hidden Time</span><span class="dv red" id="vis-hidden">0s</span></div>
+        </div>
+        <div class="console" id="vis-log"></div>
+        <p class="hint">Switch to another tab and return — the timer pauses while hidden</p>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  8. BROADCAST CHANNEL API    ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="broadcast">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Broadcast Channel API</span>
+        <span class="card-name">Cross-Tab Messenger</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'broadcast')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc"><code>BroadcastChannel</code> enables real-time messaging between browsing contexts (tabs, windows, iframes) on the same origin — no server required.</p>
+      <div class="demo">
+        <div class="bc-row">
+          <input type="text" id="bc-input" placeholder="Message to broadcast…">
+          <button class="btn green" onclick="demoHandlers.broadcast.send()">SEND</button>
+        </div>
+        <div class="console" id="bc-log"></div>
+        <div class="data-grid">
+          <div class="data-cell"><span class="dk">Channel</span><span class="dv cyan">api-lab</span></div>
+          <div class="data-cell"><span class="dk">Sent</span><span class="dv" id="bc-sent">0</span></div>
+        </div>
+        <p class="hint">↗ Open this page in another tab to see live cross-tab messaging</p>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  9. SCREEN WAKE LOCK API     ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="wakelook">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Screen Wake Lock API</span>
+        <span class="card-name">Anti-Sleep</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'wakelook')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc"><code>navigator.wakeLock.request('screen')</code> prevents the device screen from dimming or locking. Requires a secure context (HTTPS or localhost).</p>
+      <div class="demo">
+        <button class="btn wide" id="wake-btn" onclick="demoHandlers.wakelook.toggle()">▶ ACQUIRE WAKE LOCK</button>
+        <div class="data-grid">
+          <div class="data-cell"><span class="dk">Status</span><span class="dv red" id="wake-status">RELEASED</span></div>
+          <div class="data-cell"><span class="dk">Type</span><span class="dv cyan">screen</span></div>
+        </div>
+        <div class="console" id="wake-log"></div>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/WakeLock" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  10. CLIPBOARD API           ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="clipboard">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Clipboard API</span>
+        <span class="card-name">Clipboard Manager</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'clipboard')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc">The async <code>Clipboard API</code> replaces <code>execCommand</code> for reading and writing clipboard data. <code>navigator.clipboard.writeText()</code> / <code>readText()</code>.</p>
+      <div class="demo">
+        <input type="text" id="clip-write-input" placeholder="Text to write to clipboard…" value="Hello from Browser API Lab!">
+        <div class="btn-row">
+          <button class="btn green" onclick="demoHandlers.clipboard.write()">WRITE</button>
+          <button class="btn amber" onclick="demoHandlers.clipboard.read()">READ</button>
+        </div>
+        <div class="clip-preview" id="clip-preview">—</div>
+        <div class="console" id="clip-log"></div>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  11. VIBRATION API           ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="vibration">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Vibration API</span>
+        <span class="card-name">Haptic Patterns</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'vibration')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc"><code>navigator.vibrate(pattern)</code> triggers device haptic feedback with a millisecond duration or an array alternating vibration/pause intervals.</p>
+      <div class="demo">
+        <div class="data-grid cols-1">
+          <div class="data-cell"><span class="dk">Support</span><span class="dv" id="vib-support">—</span></div>
+        </div>
+        <div class="pattern-grid">
+          <button class="btn amber" onclick="demoHandlers.vibration.buzz(200)">SHORT BUZZ</button>
+          <button class="btn amber" onclick="demoHandlers.vibration.buzz(600)">LONG BUZZ</button>
+          <button class="btn violet" onclick="demoHandlers.vibration.sos()">SOS MORSE</button>
+          <button class="btn violet" onclick="demoHandlers.vibration.heartbeat()">HEARTBEAT</button>
+        </div>
+        <div class="range-row">
+          <span class="range-key">CUSTOM</span>
+          <input type="number" id="vib-ms" value="300" min="50" max="2000" style="max-width:80px">
+          <button class="btn" onclick="demoHandlers.vibration.custom()" style="flex-shrink:0">VIBRATE</button>
+        </div>
+        <p class="hint">Requires a mobile device (Android). iOS / desktop not supported.</p>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/Vibration_API" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+  <!-- ╔══════════════════════════════╗ -->
+  <!-- ║  12. BATTERY STATUS API      ║ -->
+  <!-- ╚══════════════════════════════╝ -->
+  <div class="card" data-demo="battery">
+    <div class="card-hd">
+      <div class="card-meta">
+        <span class="card-tag">Battery Status API</span>
+        <span class="card-name">Power Monitor</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" onchange="toggleDemo(this,'battery')">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-lbl">OFF</span>
+      </label>
+    </div>
+    <div class="card-bd">
+      <p class="card-desc"><code>navigator.getBattery()</code> returns a <code>BatteryManager</code> object with live level, charging state, and estimated times. Events fire on change.</p>
+      <div class="demo">
+        <div class="battery-row">
+          <div class="battery-shell">
+            <div class="battery-inner">
+              <div class="battery-charge" id="bat-fill" style="width:0%"></div>
+            </div>
+            <div class="battery-pct" id="bat-pct">—%</div>
+          </div>
+        </div>
+        <div class="data-grid">
+          <div class="data-cell"><span class="dk">Level</span><span class="dv" id="bat-level">—</span></div>
+          <div class="data-cell"><span class="dk">Charging</span><span class="dv green" id="bat-charging">—</span></div>
+          <div class="data-cell"><span class="dk">Time to Full</span><span class="dv cyan" id="bat-ctf">—</span></div>
+          <div class="data-cell"><span class="dk">Time to Empty</span><span class="dv red" id="bat-dte">—</span></div>
+        </div>
+        <div class="console" id="bat-log"></div>
+      </div>
+    </div>
+    <div class="mdn-link"><a href="https://developer.mozilla.org/en-US/docs/Web/API/Battery_Status_API" target="_blank" rel="noopener">MDN ↗</a></div>
+  </div>
+
+</div><!-- /lab-grid -->
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!--  FOOTER                                                 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<footer>
+  BROWSER API LAB &nbsp;·&nbsp; REFERENCE: <a href="https://developer.mozilla.org/en-US/docs/Web/API" target="_blank" rel="noopener">MDN WEB DOCS</a> &nbsp;·&nbsp; ALL APIS RUN NATIVELY IN-BROWSER &nbsp;·&nbsp; NO FRAMEWORKS
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!--  JAVASCRIPT                                             -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ────────────────────────────────────────────────
+   TOGGLE HANDLER
+──────────────────────────────────────────────── */
+function toggleDemo(input, id) {
+  const card = input.closest('.card');
+  const lbl  = card.querySelector('.switch-lbl');
+  if (input.checked) {
+    card.classList.add('active');
+    lbl.textContent = 'ON';
+    demoHandlers[id]?.start();
+  } else {
+    card.classList.remove('active');
+    lbl.textContent = 'OFF';
+    demoHandlers[id]?.stop();
+  }
+}
+
+/* ────────────────────────────────────────────────
+   UTILITIES
+──────────────────────────────────────────────── */
+function addLog(id, msg, type = '') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const ts   = new Date().toLocaleTimeString('en', { hour12: false });
+  const line = document.createElement('div');
+  line.className = `log ${type}`;
+  line.textContent = `[${ts}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 25) el.removeChild(el.firstChild);
+}
+
+function fmtTime(s) {
+  if (!isFinite(s) || s < 0) return '—';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function setText(id, val, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val;
+  if (cls !== undefined) el.className = `dv ${cls}`;
+}
+
+/* ────────────────────────────────────────────────
+   DEMO HANDLERS
+──────────────────────────────────────────────── */
+const demoHandlers = {
+
+  /* ══════════════════════════════════════════
+     1. WEB AUDIO API — Synthesizer
+  ══════════════════════════════════════════ */
+  audio: (() => {
+    let ctx = null, analyser = null, masterGain = null;
+    let activeNotes = {};
+    let animId = null;
+
+    const NOTES = [
+      { note: 'C4',  freq: 261.63, sharp: false },
+      { note: 'C♯',  freq: 277.18, sharp: true  },
+      { note: 'D4',  freq: 293.66, sharp: false },
+      { note: 'D♯',  freq: 311.13, sharp: true  },
+      { note: 'E4',  freq: 329.63, sharp: false },
+      { note: 'F4',  freq: 349.23, sharp: false },
+      { note: 'F♯',  freq: 369.99, sharp: true  },
+      { note: 'G4',  freq: 392.00, sharp: false },
+      { note: 'G♯',  freq: 415.30, sharp: true  },
+      { note: 'A4',  freq: 440.00, sharp: false },
+      { note: 'A♯',  freq: 466.16, sharp: true  },
+      { note: 'B4',  freq: 493.88, sharp: false },
+      { note: 'C5',  freq: 523.25, sharp: false },
+    ];
+
+    // Sharp key horizontal offsets (% within white key span)
+    const SHARP_OFFSETS = { 'C♯': 1, 'D♯': 2, 'F♯': 4, 'G♯': 5, 'A♯': 6 };
+
+    function ensureCtx() {
+      if (!ctx) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        masterGain = ctx.createGain();
+        masterGain.gain.value = getVol();
+        masterGain.connect(analyser);
+        analyser.connect(ctx.destination);
+      }
+      if (ctx.state === 'suspended') ctx.resume();
+    }
+
+    function getVol()  { const v = document.getElementById('synth-vol');  return v ? (v.value / 100) * 0.65 : 0.4; }
+    function getWave() { const w = document.getElementById('wave-type'); return w ? w.value : 'sine'; }
+
+    function pressNote(freq, btn) {
+      if (activeNotes[freq]) return;
+      ensureCtx();
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = getWave();
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.28, ctx.currentTime + 0.012);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start();
+      activeNotes[freq] = { osc, gain };
+      btn?.classList.add('on');
+    }
+
+    function releaseNote(freq, btn) {
+      const n = activeNotes[freq];
+      if (!n) return;
+      n.gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.08);
+      n.osc.stop(ctx.currentTime + 0.09);
+      delete activeNotes[freq];
+      btn?.classList.remove('on');
+    }
+
+    function buildKeys() {
+      const container = document.getElementById('synth-keys');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const whites = NOTES.filter(n => !n.sharp);
+      const whiteCount = whites.length;
+
+      whites.forEach((note, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'key';
+        btn.textContent = note.note;
+        btn.dataset.freq = note.freq;
+        btn.style.left = `${(i / whiteCount) * 100}%`;
+
+        const press   = () => pressNote(note.freq, btn);
+        const release = () => releaseNote(note.freq, btn);
+        btn.addEventListener('mousedown',  press);
+        btn.addEventListener('mouseup',    release);
+        btn.addEventListener('mouseleave', release);
+        btn.addEventListener('touchstart', e => { e.preventDefault(); press(); },   { passive: false });
+        btn.addEventListener('touchend',   e => { e.preventDefault(); release(); }, { passive: false });
+        container.appendChild(btn);
+      });
+
+      // Sharp keys — absolutely positioned
+      NOTES.filter(n => n.sharp).forEach(note => {
+        const wIdx = SHARP_OFFSETS[note.note];
+        if (wIdx === undefined) return;
+        const btn = document.createElement('button');
+        btn.className = 'key sharp';
+        btn.textContent = note.note;
+        btn.dataset.freq = note.freq;
+        // Position at right edge of the nth white key
+        btn.style.left = `calc(${(wIdx / whiteCount) * 100}% - 11px)`;
+
+        const press   = () => pressNote(note.freq, btn);
+        const release = () => releaseNote(note.freq, btn);
+        btn.addEventListener('mousedown',  press);
+        btn.addEventListener('mouseup',    release);
+        btn.addEventListener('mouseleave', release);
+        btn.addEventListener('touchstart', e => { e.preventDefault(); press(); },   { passive: false });
+        btn.addEventListener('touchend',   e => { e.preventDefault(); release(); }, { passive: false });
+        container.appendChild(btn);
+      });
+    }
+
+    function drawWave() {
+      const canvas = document.getElementById('waveform-canvas');
+      if (!canvas) return;
+      const c = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+
+      if (!analyser) {
+        c.clearRect(0, 0, W, H);
+        animId = requestAnimationFrame(drawWave);
+        return;
+      }
+
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteTimeDomainData(buf);
+
+      c.clearRect(0, 0, W, H);
+      c.lineWidth = 1.5;
+      c.strokeStyle = '#00e5ff';
+      c.shadowColor = '#00e5ff';
+      c.shadowBlur  = 5;
+      c.beginPath();
+      const step = W / buf.length;
+      buf.forEach((v, i) => {
+        const y = (v / 255) * H;
+        i === 0 ? c.moveTo(0, y) : c.lineTo(i * step, y);
+      });
+      c.stroke();
+      c.shadowBlur = 0;
+
+      animId = requestAnimationFrame(drawWave);
+    }
+
+    return {
+      start() {
+        buildKeys();
+
+        const volSlider = document.getElementById('synth-vol');
+        const volDisplay = document.getElementById('vol-display');
+        if (volSlider) volSlider.oninput = () => {
+          if (volDisplay) volDisplay.textContent = volSlider.value;
+          if (masterGain) masterGain.gain.value = (volSlider.value / 100) * 0.65;
+        };
+
+        const canvas = document.getElementById('waveform-canvas');
+        if (canvas) { canvas.width = canvas.offsetWidth || 280; canvas.height = 48; }
+
+        animId = requestAnimationFrame(drawWave);
+      },
+      stop() {
+        Object.keys(activeNotes).forEach(f => {
+          try {
+            activeNotes[f].gain.gain.value = 0;
+            activeNotes[f].osc.stop();
+          } catch (_) {}
+          delete activeNotes[f];
+        });
+        if (animId) { cancelAnimationFrame(animId); animId = null; }
+        if (ctx)    { ctx.close(); ctx = null; analyser = null; masterGain = null; }
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     2. CANVAS 2D API — Particle Field
+  ══════════════════════════════════════════ */
+  canvas: (() => {
+    let animId = null, canvas = null, ctx = null;
+    let particles = [];
+    let mouse = { x: -9999, y: -9999 };
+
+    class Particle {
+      constructor(x, y, vx, vy) {
+        this.x  = x  ?? Math.random() * (canvas?.width  || 300);
+        this.y  = y  ?? Math.random() * (canvas?.height || 150);
+        this.vx = vx ?? (Math.random() - 0.5) * 1.4;
+        this.vy = vy ?? (Math.random() - 0.5) * 1.4;
+        this.r  = Math.random() * 1.8 + 0.8;
+        this.hue = Math.floor(Math.random() * 80 + 160); // blue–teal range
+      }
+      update(W, H) {
+        const dx = this.x - mouse.x, dy = this.y - mouse.y;
+        const d  = Math.hypot(dx, dy);
+        if (d < 90 && d > 0) {
+          this.vx += (dx / d) * 0.35;
+          this.vy += (dy / d) * 0.35;
+        }
+        const spd = Math.hypot(this.vx, this.vy);
+        if (spd > 2.8) { this.vx = (this.vx / spd) * 2.8; this.vy = (this.vy / spd) * 2.8; }
+        this.x += this.vx; this.y += this.vy;
+        if (this.x < 0) { this.x = 0; this.vx *= -1; }
+        if (this.x > W) { this.x = W; this.vx *= -1; }
+        if (this.y < 0) { this.y = 0; this.vy *= -1; }
+        if (this.y > H) { this.y = H; this.vy *= -1; }
+        this.vx *= 0.998; this.vy *= 0.998;
+      }
+    }
+
+    function loop() {
+      if (!canvas || !ctx) return;
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      let conns = 0;
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const d = Math.hypot(particles[i].x - particles[j].x, particles[i].y - particles[j].y);
+          if (d < 85) {
+            ctx.strokeStyle = `rgba(0,229,255,${(1 - d / 85) * 0.35})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+            conns++;
+          }
+        }
+      }
+
+      particles.forEach(p => {
+        p.update(W, H);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${p.hue},100%,70%,0.85)`;
+        ctx.shadowColor = `hsla(${p.hue},100%,65%,0.5)`;
+        ctx.shadowBlur  = 5;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      setText('particle-count', particles.length);
+      setText('connection-count', conns);
+      animId = requestAnimationFrame(loop);
+    }
+
+    return {
+      start() {
+        canvas = document.getElementById('particle-canvas');
+        if (!canvas) return;
+        canvas.width  = canvas.offsetWidth || 300;
+        canvas.height = 150;
+        ctx = canvas.getContext('2d');
+        particles = Array.from({ length: 65 }, () => new Particle());
+
+        canvas.addEventListener('mousemove', e => {
+          const r = canvas.getBoundingClientRect();
+          mouse.x = (e.clientX - r.left) * (canvas.width  / r.width);
+          mouse.y = (e.clientY - r.top)  * (canvas.height / r.height);
+        });
+        canvas.addEventListener('mouseleave', () => { mouse.x = -9999; mouse.y = -9999; });
+        canvas.addEventListener('click', e => {
+          const r = canvas.getBoundingClientRect();
+          const cx = (e.clientX - r.left) * (canvas.width / r.width);
+          const cy = (e.clientY - r.top)  * (canvas.height / r.height);
+          for (let i = 0; i < 14; i++) {
+            const a = (i / 14) * Math.PI * 2;
+            particles.push(new Particle(cx, cy, Math.cos(a) * 2.2, Math.sin(a) * 2.2));
+          }
+        });
+
+        animId = requestAnimationFrame(loop);
+      },
+      stop() {
+        if (animId) { cancelAnimationFrame(animId); animId = null; }
+        particles = [];
+        if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+      },
+      burst() {
+        if (!canvas) return;
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        for (let i = 0; i < 22; i++) {
+          const a = (i / 22) * Math.PI * 2, spd = Math.random() * 3 + 1;
+          particles.push(new Particle(cx, cy, Math.cos(a) * spd, Math.sin(a) * spd));
+        }
+      },
+      clear() { particles = []; }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     3. GEOLOCATION API
+  ══════════════════════════════════════════ */
+  geo: (() => {
+    let watchId = null;
+
+    function onPos(pos) {
+      const { latitude, longitude, accuracy } = pos.coords;
+      setText('geo-lat',  latitude.toFixed(6));
+      setText('geo-lng',  longitude.toFixed(6));
+      setText('geo-acc',  `±${accuracy.toFixed(0)} m`);
+      setText('geo-time', new Date(pos.timestamp).toLocaleTimeString());
+      addLog('geo-log', `Fix: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}  ±${accuracy.toFixed(0)} m`, 's');
+    }
+
+    function onErr(e) {
+      const m = { 1: 'Permission denied', 2: 'Position unavailable', 3: 'Timeout' };
+      addLog('geo-log', `Error [${e.code}]: ${m[e.code] || e.message}`, 'e');
+      setText('geo-lat', 'ERROR', 'red');
+    }
+
+    return {
+      start() { addLog('geo-log', 'Geolocation API ready', 'i'); },
+      stop() {
+        this.unwatchPos();
+        ['geo-lat','geo-lng','geo-acc','geo-time'].forEach(id => setText(id, '—'));
+      },
+      getPos() {
+        if (!navigator.geolocation) { addLog('geo-log', 'Not supported', 'e'); return; }
+        addLog('geo-log', 'Requesting position…', 'i');
+        navigator.geolocation.getCurrentPosition(onPos, onErr, { enableHighAccuracy: true, timeout: 10000 });
+      },
+      watchPos() {
+        if (!navigator.geolocation) { addLog('geo-log', 'Not supported', 'e'); return; }
+        if (watchId !== null) return;
+        addLog('geo-log', 'Watching position…', 'w');
+        watchId = navigator.geolocation.watchPosition(onPos, onErr, { enableHighAccuracy: true });
+      },
+      unwatchPos() {
+        if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; addLog('geo-log', 'Watch cleared', 'i'); }
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     4. SPEECH SYNTHESIS API
+  ══════════════════════════════════════════ */
+  speech: (() => {
+    const synth = window.speechSynthesis;
+
+    function loadVoices() {
+      const voices = synth?.getVoices() ?? [];
+      const sel = document.getElementById('speech-voice');
+      if (!sel || voices.length === 0) return;
+      sel.innerHTML = '';
+      voices.forEach((v, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `${v.name} (${v.lang})`;
+        sel.appendChild(opt);
+      });
+    }
+
+    return {
+      start() {
+        if (!synth) { setText('speech-status', 'NOT SUPPORTED', 'red'); return; }
+        loadVoices();
+        if (synth.onvoiceschanged !== undefined) synth.addEventListener('voiceschanged', loadVoices);
+
+        const rangeSetup = (id, displayId) => {
+          const el = document.getElementById(id), dsp = document.getElementById(displayId);
+          if (el && dsp) el.oninput = () => { dsp.textContent = parseFloat(el.value).toFixed(1); };
+        };
+        rangeSetup('speech-rate', 'rate-val');
+        rangeSetup('speech-pitch', 'pitch-val');
+      },
+      stop() {
+        synth?.cancel();
+        if (synth) synth.removeEventListener('voiceschanged', loadVoices);
+        setText('speech-status', 'IDLE');
+      },
+      speak() {
+        if (!synth) return;
+        synth.cancel();
+        const text = document.getElementById('speech-text')?.value?.trim();
+        if (!text) return;
+        const utt = new SpeechSynthesisUtterance(text);
+        const vi  = document.getElementById('speech-voice')?.value;
+        const vcs = synth.getVoices();
+        if (vi != null && vcs[vi]) utt.voice = vcs[vi];
+        utt.rate  = parseFloat(document.getElementById('speech-rate')?.value  ?? 1);
+        utt.pitch = parseFloat(document.getElementById('speech-pitch')?.value ?? 1);
+        utt.onstart = () => setText('speech-status', 'SPEAKING…', 'green');
+        utt.onend   = () => setText('speech-status', 'DONE',      'cyan');
+        utt.onerror = () => setText('speech-status', 'ERROR',     'red');
+        synth.speak(utt);
+      },
+      cancel() { synth?.cancel(); setText('speech-status', 'IDLE'); }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     5. INTERSECTION OBSERVER
+  ══════════════════════════════════════════ */
+  intersection: (() => {
+    let observer = null, eventCount = 0;
+
+    return {
+      start() {
+        const box = document.getElementById('io-scroll-box');
+        if (!box) return;
+        box.innerHTML = '';
+        eventCount = 0;
+
+        for (let i = 1; i <= 9; i++) {
+          const item = document.createElement('div');
+          item.className = 'sensor-item';
+          item.innerHTML = `<span class="s-dot"></span>SENSOR_${String(i).padStart(2,'0')} — scroll to intersect`;
+          box.appendChild(item);
+        }
+
+        observer = new IntersectionObserver(entries => {
+          entries.forEach(e => {
+            e.target.classList.toggle('visible', e.isIntersecting);
+            eventCount++;
+          });
+          setText('io-visible', box.querySelectorAll('.sensor-item.visible').length);
+          setText('io-events',  eventCount);
+        }, { root: box, threshold: 0.5 });
+
+        box.querySelectorAll('.sensor-item').forEach(el => observer.observe(el));
+      },
+      stop() {
+        observer?.disconnect();
+        observer = null; eventCount = 0;
+        setText('io-visible', '0');
+        setText('io-events',  '0');
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     6. RESIZE OBSERVER
+  ══════════════════════════════════════════ */
+  resize: (() => {
+    let observer = null;
+
+    return {
+      start() {
+        const target = document.getElementById('resize-target');
+        if (!target) return;
+        if (!window.ResizeObserver) { setText('resize-w', 'NOT SUPPORTED', 'red'); return; }
+
+        observer = new ResizeObserver(entries => {
+          for (const entry of entries) {
+            const { width, height } = entry.contentRect;
+            setText('resize-w', `${Math.round(width)} px`);
+            setText('resize-h', `${Math.round(height)} px`);
+            const bbs = entry.borderBoxSize?.[0];
+            if (bbs) {
+              setText('resize-inline', `${Math.round(bbs.inlineSize)} px`);
+              setText('resize-block',  `${Math.round(bbs.blockSize)} px`);
+            }
+          }
+        });
+        observer.observe(target);
+      },
+      stop() {
+        observer?.disconnect();
+        observer = null;
+        ['resize-w','resize-h','resize-inline','resize-block'].forEach(id => setText(id, '—'));
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     7. PAGE VISIBILITY API
+  ══════════════════════════════════════════ */
+  visibility: (() => {
+    let activeMs = 0, hiddenMs = 0, lastTick = 0, changeCount = 0;
+    let tickId = null, handler = null;
+
+    function tick() {
+      const now   = Date.now();
+      const delta = now - lastTick;
+      lastTick = now;
+      if (document.visibilityState === 'visible') activeMs += delta;
+      else hiddenMs += delta;
+
+      const visible = document.visibilityState === 'visible';
+      setText('vis-state',  visible ? 'VISIBLE' : 'HIDDEN', visible ? 'green' : 'red');
+      setText('vis-active', fmtTime(activeMs / 1000));
+      setText('vis-hidden', fmtTime(hiddenMs / 1000));
+    }
+
+    return {
+      start() {
+        activeMs = hiddenMs = changeCount = 0;
+        lastTick = Date.now();
+
+        handler = () => {
+          changeCount++;
+          setText('vis-changes', changeCount);
+          const st = document.visibilityState;
+          addLog('vis-log', `→ ${st.toUpperCase()}`, st === 'visible' ? 's' : 'w');
+        };
+
+        document.addEventListener('visibilitychange', handler);
+        tickId = setInterval(tick, 500);
+        tick();
+        addLog('vis-log', 'Monitoring tab visibility', 'i');
+      },
+      stop() {
+        if (handler) document.removeEventListener('visibilitychange', handler);
+        if (tickId)  clearInterval(tickId);
+        handler = null; tickId = null;
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     8. BROADCAST CHANNEL API
+  ══════════════════════════════════════════ */
+  broadcast: (() => {
+    let channel = null, sentCount = 0;
+
+    return {
+      start() {
+        if (!window.BroadcastChannel) { addLog('bc-log', 'BroadcastChannel not supported', 'e'); return; }
+        channel = new BroadcastChannel('browser-api-lab');
+        channel.onmessage = e => addLog('bc-log', `← RECV: ${e.data}`, 'i');
+        addLog('bc-log', 'Channel "browser-api-lab" opened', 's');
+        addLog('bc-log', 'Open another tab with this file to test', 'i');
+      },
+      stop() {
+        channel?.close();
+        channel = null; sentCount = 0;
+        setText('bc-sent', '0');
+      },
+      send() {
+        if (!channel) { addLog('bc-log', 'Channel not open', 'e'); return; }
+        const input = document.getElementById('bc-input');
+        const msg   = input?.value?.trim();
+        if (!msg) return;
+        channel.postMessage(msg);
+        sentCount++;
+        setText('bc-sent', sentCount);
+        addLog('bc-log', `→ SENT: ${msg}`, 's');
+        if (input) input.value = '';
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     9. SCREEN WAKE LOCK API
+  ══════════════════════════════════════════ */
+  wakelook: (() => {
+    let wakeLock = null, isActive = false, visHandler = null;
+
+    function updateUI() {
+      const btn = document.getElementById('wake-btn');
+      if (btn) {
+        btn.textContent = isActive ? '■ RELEASE WAKE LOCK' : '▶ ACQUIRE WAKE LOCK';
+        btn.className   = isActive ? 'btn red wide' : 'btn green wide';
+      }
+      setText('wake-status', isActive ? 'ACTIVE' : 'RELEASED', isActive ? 'green' : 'red');
+    }
+
+    async function acquire() {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        isActive = true;
+        addLog('wake-log', 'Wake lock acquired ✓', 's');
+        updateUI();
+        wakeLock.addEventListener('release', () => {
+          wakeLock = null; isActive = false;
+          addLog('wake-log', 'Wake lock auto-released', 'w');
+          updateUI();
+        });
+      } catch (e) {
+        addLog('wake-log', `Error: ${e.message}`, 'e');
+      }
+    }
+
+    return {
+      start() {
+        if (!('wakeLock' in navigator)) {
+          addLog('wake-log', 'Wake Lock not supported (requires HTTPS)', 'e');
+          setText('wake-status', 'NOT SUPPORTED', 'red');
+          return;
+        }
+        addLog('wake-log', 'Wake Lock API available', 'i');
+        visHandler = () => {
+          if (!isActive && document.visibilityState === 'visible') acquire();
+        };
+        document.addEventListener('visibilitychange', visHandler);
+      },
+      stop() {
+        if (visHandler) document.removeEventListener('visibilitychange', visHandler);
+        visHandler = null;
+        if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; isActive = false; }
+        updateUI();
+      },
+      async toggle() {
+        if (!('wakeLock' in navigator)) return;
+        if (isActive) {
+          try {
+            await wakeLock.release();
+            wakeLock = null; isActive = false;
+            addLog('wake-log', 'Wake lock released', 'w');
+            updateUI();
+          } catch (e) { addLog('wake-log', `Error: ${e.message}`, 'e'); }
+        } else {
+          await acquire();
+        }
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     10. CLIPBOARD API
+  ══════════════════════════════════════════ */
+  clipboard: (() => {
+    return {
+      start() {
+        addLog('clip-log', 'Clipboard API ready', 'i');
+        if (!navigator.clipboard) addLog('clip-log', 'Async API requires HTTPS/localhost', 'w');
+      },
+      stop() {
+        const p = document.getElementById('clip-preview');
+        if (p) p.textContent = '—';
+      },
+      async write() {
+        const input = document.getElementById('clip-write-input');
+        const text  = input?.value ?? '';
+        try {
+          await navigator.clipboard.writeText(text);
+          addLog('clip-log', `Written: "${text.slice(0, 40)}${text.length > 40 ? '…' : ''}"`, 's');
+        } catch (_) {
+          // Fallback via execCommand
+          try {
+            const ta = Object.assign(document.createElement('textarea'), {
+              value: text, style: 'position:fixed;opacity:0'
+            });
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            addLog('clip-log', `Written via fallback: "${text.slice(0, 30)}"`, 'w');
+          } catch (e2) {
+            addLog('clip-log', `Write failed: ${e2.message}`, 'e');
+          }
+        }
+      },
+      async read() {
+        try {
+          const text = await navigator.clipboard.readText();
+          const prev = document.getElementById('clip-preview');
+          if (prev) prev.textContent = text || '(empty)';
+          addLog('clip-log', `Read ${text.length} chars`, 's');
+        } catch (e) {
+          addLog('clip-log', `Read denied: ${e.message}`, 'e');
+          const prev = document.getElementById('clip-preview');
+          if (prev) prev.textContent = '(permission denied)';
+        }
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     11. VIBRATION API
+  ══════════════════════════════════════════ */
+  vibration: (() => {
+    return {
+      start() {
+        const supported = 'vibrate' in navigator;
+        setText('vib-support', supported ? 'YES' : 'NOT SUPPORTED', supported ? 'green' : 'red');
+      },
+      stop() {},
+      buzz(ms) {
+        if (!navigator.vibrate) return;
+        navigator.vibrate(ms);
+      },
+      sos() {
+        // S·O·S  (· · ·  — — —  · · ·)
+        if (!navigator.vibrate) return;
+        navigator.vibrate([100,100,100,100,100,200,300,100,300,100,300,200,100,100,100,100,100]);
+      },
+      heartbeat() {
+        if (!navigator.vibrate) return;
+        navigator.vibrate([80, 80, 150, 500, 80, 80, 150, 500, 80, 80, 150]);
+      },
+      custom() {
+        if (!navigator.vibrate) return;
+        const ms = parseInt(document.getElementById('vib-ms')?.value ?? 300);
+        navigator.vibrate(ms);
+      }
+    };
+  })(),
+
+  /* ══════════════════════════════════════════
+     12. BATTERY STATUS API
+  ══════════════════════════════════════════ */
+  battery: (() => {
+    let battery = null;
+
+    function updateBattery(b) {
+      const pct = Math.round(b.level * 100);
+      const fill = document.getElementById('bat-fill');
+      if (fill) fill.style.width = `${pct}%`;
+      setText('bat-pct',      `${pct}%`);
+      setText('bat-level',    `${pct}%`);
+      setText('bat-charging', b.charging ? 'YES ⚡' : 'NO',        b.charging ? 'green' : 'amber');
+      setText('bat-ctf',      fmtTime(b.chargingTime));
+      setText('bat-dte',      fmtTime(b.dischargingTime));
+
+      // Change fill color when low
+      if (fill) {
+        fill.style.background = pct < 20
+          ? 'linear-gradient(to right, #ff3355, #ff6633)'
+          : 'linear-gradient(to right, #39ff14, #00e5ff)';
+      }
+    }
+
+    return {
+      async start() {
+        if (!navigator.getBattery) {
+          addLog('bat-log', 'Battery Status API not supported in this browser', 'e');
+          return;
+        }
+        try {
+          battery = await navigator.getBattery();
+          updateBattery(battery);
+          addLog('bat-log', 'Battery manager acquired', 's');
+
+          battery.addEventListener('levelchange',         () => { updateBattery(battery); addLog('bat-log', `Level: ${Math.round(battery.level*100)}%`, 'i'); });
+          battery.addEventListener('chargingchange',      () => { updateBattery(battery); addLog('bat-log', `Charging: ${battery.charging}`, battery.charging ? 's' : 'w'); });
+          battery.addEventListener('chargingtimechange',  () => updateBattery(battery));
+          battery.addEventListener('dischargingtimechange', () => updateBattery(battery));
+        } catch (e) {
+          addLog('bat-log', `Error: ${e.message}`, 'e');
+        }
+      },
+      stop() {
+        battery = null;
+        ['bat-level','bat-charging','bat-ctf','bat-dte'].forEach(id => setText(id, '—'));
+        setText('bat-pct', '—%');
+        const fill = document.getElementById('bat-fill');
+        if (fill) fill.style.width = '0%';
+      }
+    };
+  })()
+
+}; // end demoHandlers
+
+</script>
+</body>
+</html>
